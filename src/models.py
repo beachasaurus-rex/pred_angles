@@ -1,3 +1,4 @@
+from torch import Tensor
 from torch.nn import (
     Module,
     Linear,
@@ -30,5 +31,5 @@ class ModelTrainer(Module):
         self.opt = opt
         self.loss = loss
     
-    def train(self, model: Module, num_epochs: int, x_train, y_train, x_val, y_val):
-        
+    def train(self, model: Module, num_epochs: int, x_train: Tensor, y_train: Tensor, x_val: Tensor, y_val: Tensor):
+        pass
