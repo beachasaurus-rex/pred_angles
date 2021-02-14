@@ -1,7 +1,15 @@
-from tensorflow.keras import (
-    layers,
-    Sequential
+from torch import (
+    Tensor,
+    min as tmin,
+    max as tmax
 )
+from torch.nn import (
+    Module,
+    MSELoss,
+    KLDivLoss,
+    L1Loss
+)
+from torch.optim import SGD
 from pandas import DataFrame, concat
 from matplotlib import pyplot
 from math import (
@@ -9,74 +17,61 @@ from math import (
     cos,
     pi
 )
+from sklearn.preprocessing import RobustScaler
+from numpy import array
 
 from data import (
-    make_validation_data,
-    make_training_data,
-    scale,
-    unscale
+    perfect_circle_data,
+    fuzzy_circle_data
+)
+from models import (
+    CircleNetwork,
+    ModelTrainer
 )
 
-radius = 100
-val_data = make_validation_data(radius,1)
-train_data = make_training_data(radius,1)
-num_epochs = 100
+radius = 10
+step = 0.01
+val_data = perfect_circle_data(radius,step)
+train_data = fuzzy_circle_data(radius,step)
+num_epochs = 10000
 
-x_min = train_data["x"].min()
-x_max = train_data["x"].max()
-y_min = train_data["y"].min()
-y_max = train_data["y"].max()
-theta_min = train_data["theta"].min()
-theta_max = train_data["theta"].max()
-s_x = scale(train_data["x"], x_min, x_max)
-s_y = scale(train_data["y"], y_min, y_max)
-s_theta = scale(train_data["theta"], theta_min, theta_max)
-s_input = concat([s_x,s_y], axis=1)
+x_train = train_data[["x","y"]].to_numpy()
+y_train = array(train_data["theta"].to_numpy()).reshape(-1,1)
+x_val = val_data[["x","y"]].to_numpy()
+y_val = array(val_data["theta"].to_numpy()).reshape(-1,1)
 
-val_x_min = val_data["x"].min()
-val_x_max = val_data["x"].max()
-val_y_min = val_data["y"].min()
-val_y_max = val_data["y"].max()
-val_theta_min = val_data["theta"].min()
-val_theta_max = val_data["theta"].max()
-val_s_x = scale(val_data["x"], val_x_min, val_x_max)
-val_s_y = scale(val_data["y"], val_y_min, val_y_max)
-val_s_theta = scale(val_data["theta"], val_theta_min, val_theta_max)
-val_s_input = concat([val_s_x, val_s_y], axis=1)
+x_scale = RobustScaler()
+y_scale = RobustScaler()
 
-model = Sequential([
-    layers.Dense(20, activation="relu", input_shape=[2]),
-    layers.Dense(20, activation="relu"),
-    layers.Dense(1)
-])
+s_x_train = Tensor(x_scale.fit_transform(x_train))
+s_y_train = Tensor(y_scale.fit_transform(y_train))
+s_x_val = Tensor(x_scale.transform(x_val))
+s_y_val = Tensor(y_scale.transform(y_val))
 
-model.compile(
-    optimizer="adam",
-    loss="mae"
+circle_net = CircleNetwork(2,1,200,0.5)
+opt = SGD(circle_net.parameters(), lr=1e-5)
+loss = MSELoss(reduction="sum")
+trainer = ModelTrainer()
+
+train_losses, val_losses = trainer.train(circle_net,
+    opt,
+    loss,
+    num_epochs,
+    s_x_train,
+    s_y_train,
+    s_x_val,
+    s_y_val
 )
 
-history = model.fit(
-    s_input, s_theta,
-    validation_data=(val_s_input, val_s_theta),
-    epochs=num_epochs
-)
+eval_data = fuzzy_circle_data(radius,step)
+x_eval = eval_data[["x","y"]].to_numpy()
+y_eval = array(eval_data["theta"].to_numpy()).reshape(-1,1)
+s_x_eval = Tensor(x_scale.fit_transform(x_eval))
+y_scale.fit(y_eval)
+s_y_pred = circle_net(s_x_eval)
+y_pred = y_scale.inverse_transform(s_y_pred.detach().numpy())
 
-test_data = make_training_data(radius,1)
-
-test_x_min = test_data["x"].min()
-test_x_max = test_data["x"].max()
-test_y_min = test_data["y"].min()
-test_y_max = test_data["y"].max()
-test_theta_min = test_data["theta"].min()
-test_theta_max = test_data["theta"].max()
-test_s_x = scale(test_data["x"], test_x_min, test_x_max)
-test_s_y = scale(test_data["y"], test_y_min, test_y_max)
-test_s_input = concat([test_s_x, test_s_y], axis=1)
-
-s_pred_thetas = model.predict(s_input)
-pred_thetas = unscale(s_pred_thetas, test_theta_min, test_theta_max)
-
-pred_thetas_list = pred_thetas.flatten().tolist()
+pred_thetas_list = y_pred.flatten().tolist()
 pred_x = []
 pred_y = []
 for theta in pred_thetas_list:
@@ -96,7 +91,7 @@ pyplot.xlabel("x val")
 pyplot.ylabel("y val")
 pyplot.title("validation data")
 pyplot.subplot(3,2,3)
-pyplot.scatter(test_data["x"], test_data["y"])
+pyplot.scatter(eval_data["x"], eval_data["y"])
 pyplot.xlabel("x eval")
 pyplot.ylabel("y eval")
 pyplot.title("evaluation data")
@@ -106,8 +101,13 @@ pyplot.xlabel("x predicted")
 pyplot.ylabel("y predicted")
 pyplot.title("predictions")
 pyplot.subplot(3,2,5)
-pyplot.scatter(val_data["theta"], pred_thetas)
+pyplot.scatter(val_data["theta"], y_pred)
 pyplot.xlabel("true angle")
 pyplot.ylabel("predicted angle")
 pyplot.title("true vs predicted")
+pyplot.subplot(3,2,6)
+pyplot.scatter(range(1,len(train_losses)+1), val_losses)
+pyplot.xlabel("epoch")
+pyplot.ylabel("error")
+pyplot.title("error")
 pyplot.show()

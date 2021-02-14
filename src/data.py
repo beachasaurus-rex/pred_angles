@@ -5,9 +5,9 @@ from math import (
     copysign
 )
 from pandas import (
-    concat,
     Series,
-    DataFrame
+    DataFrame,
+    concat
 )
 from numpy import (
     linspace as nplinspace,
@@ -49,7 +49,7 @@ def _add_noise(eles: list, radius: int):
     new_eles = [eles[i] * (1 + r[i]) for i in range(0, len(eles))]
     return new_eles
 
-def make_validation_data(radius: float, step: float):
+def perfect_circle_data(radius: float, step: float):
     #half circle 1
     num_eles = _num_eles(radius,-radius,step)
     x1 = nplinspace(radius, -radius, num_eles)
@@ -67,7 +67,7 @@ def make_validation_data(radius: float, step: float):
     df.columns = ["x", "y", "theta"]
     return df
 
-def make_training_data(radius: float, step: float):
+def fuzzy_circle_data(radius: float, step: float):
     #half circle 1
     num_eles = _num_eles(radius,-radius,step)
     x1 = nplinspace(radius, -radius, num_eles)
@@ -79,12 +79,11 @@ def make_training_data(radius: float, step: float):
     #concat everything
     x = concatenate([x1, x2], axis=0)
     y = concatenate([y1, y2], axis=0)
-    #calc the angle for each coordinate
-    theta = array([_theta(x[i],y[i]) for i in range(0,len(x))])
     #add some noise
     x = _add_noise(x, radius)
     y = _add_noise(y, radius)
-    theta = _add_noise(theta, radius)
+    #calc the angle for each coordinate
+    theta = array([_theta(x[i],y[i]) for i in range(0,len(x))])
     df = concat([Series(x),Series(y),Series(theta)], axis=1)
     df.columns = ["x", "y", "theta"]
     return df
