@@ -1,4 +1,5 @@
 wheel
-tensorflow==2.4.1
+torch==1.7.1
+scikit-learn==0.24.1
 pandas==1.2.2
 matplotlib==3.3.3

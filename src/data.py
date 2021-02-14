@@ -5,20 +5,23 @@ from math import (
     copysign
 )
 from pandas import (
-    concat,
     Series,
-    DataFrame
+    DataFrame,
+    concat
+)
+from numpy import (
+    linspace as nplinspace,
+    array,
+    concatenate
 )
 from numpy.random import normal
+from math import ceil
 
 def _circle(x: float, radius: int):
     return sqrt(radius**2 - x**2)
 
-def _mag(x: float, y: float):
-    return sqrt(x**2 + y**2)
-
 def _theta(x: float, y: float):
-    r_mag = _mag(x,y)
+    r_mag = sqrt(x**2 + y**2)
     x_sign = None
     y_sign = None
     if x == 0:
@@ -38,61 +41,49 @@ def _theta(x: float, y: float):
         theta = 360 + theta
     return theta
 
-def make_validation_data(radius: int, step: int):
-    #quad 1
-    q1x = [i for i in range(radius,-1,-step)]
-    q1y = [_circle(x_iter, radius) for x_iter in q1x]
-    #quad 2
-    q2x = [i for i in range(-1,-(radius+1),-step)]
-    q2y = [_circle(x_iter, radius) for x_iter in q2x]
-    #quad 3
-    q3x = [i for i in range(-(radius-1),1,step)]
-    q3y = [-_circle(x_iter, radius) for x_iter in q3x]
-    #quad 4
-    q4x = [i for i in range(1,radius+1,step)]
-    q4y = [-_circle(x_iter, radius) for x_iter in q4x]
-    #concat everything
-    x = [*q1x,*q2x,*q3x,*q4x]
-    y = [*q1y,*q2y,*q3y,*q4y]
-    #calc the angle for each coordinate
-    theta = [_theta(x[i],y[i]) for i in range(0,len(x))]
-    df = concat([Series(x),Series(y),Series(theta)], axis=1)
-    df.columns = ["x", "y", "theta"]
-    return df
+def _num_eles(start: float, stop: float, step:float):
+    return ceil(abs(stop-start)/step) + 1
 
 def _add_noise(eles: list, radius: int):
     r = normal(0,0.1,len(eles))
     new_eles = [eles[i] * (1 + r[i]) for i in range(0, len(eles))]
     return new_eles
 
-def make_training_data(radius: int, step: int):
-    #quad 1
-    q1x = [i for i in range(radius,-1,-step)]
-    q1y = [_circle(x_iter, radius) for x_iter in q1x]
-    #quad 2
-    q2x = [i for i in range(-1,-(radius+1),-step)]
-    q2y = [_circle(x_iter, radius) for x_iter in q2x]
-    #quad 3
-    q3x = [i for i in range(-(radius-1),1,step)]
-    q3y = [-_circle(x_iter, radius) for x_iter in q3x]
-    #quad 4
-    q4x = [i for i in range(1,radius+1,step)]
-    q4y = [-_circle(x_iter, radius) for x_iter in q4x]
+def perfect_circle_data(radius: float, step: float):
+    #half circle 1
+    num_eles = _num_eles(radius,-radius,step)
+    x1 = nplinspace(radius, -radius, num_eles)
+    y1 = array([_circle(x_iter, radius) for x_iter in x1])
+    #half circle 2
+    num_eles = _num_eles(-(radius-step),radius,step)
+    x2 = nplinspace(-(radius-step), radius, num_eles)
+    y2 = array([-_circle(x_iter, radius) for x_iter in x2])
     #concat everything
-    x = [*q1x,*q2x,*q3x,*q4x]
-    y = [*q1y,*q2y,*q3y,*q4y]
+    x = concatenate([x1, x2], axis=0)
+    y = concatenate([y1, y2], axis=0)
     #calc the angle for each coordinate
-    theta = [_theta(x[i],y[i]) for i in range(0,len(x))]
-    #add some noise
-    x = _add_noise(x, radius)
-    y = _add_noise(y, radius)
-    theta = _add_noise(theta, radius)
+    theta = array([_theta(x[i],y[i]) for i in range(0,len(x))])
     df = concat([Series(x),Series(y),Series(theta)], axis=1)
     df.columns = ["x", "y", "theta"]
     return df
 
-def scale(col: DataFrame, _min: float, _max: float):
-    return (col - _min) / (_max - _min)
-
-def unscale(col: DataFrame, _min: float, _max: float):
-    return col * (_max - _min) + _min
+def fuzzy_circle_data(radius: float, step: float):
+    #half circle 1
+    num_eles = _num_eles(radius,-radius,step)
+    x1 = nplinspace(radius, -radius, num_eles)
+    y1 = array([_circle(x_iter, radius) for x_iter in x1])
+    #half circle 2
+    num_eles = _num_eles(-(radius-step),radius,step)
+    x2 = nplinspace(-(radius-step), radius, num_eles)
+    y2 = array([-_circle(x_iter, radius) for x_iter in x2])
+    #concat everything
+    x = concatenate([x1, x2], axis=0)
+    y = concatenate([y1, y2], axis=0)
+    #add some noise
+    x = _add_noise(x, radius)
+    y = _add_noise(y, radius)
+    #calc the angle for each coordinate
+    theta = array([_theta(x[i],y[i]) for i in range(0,len(x))])
+    df = concat([Series(x),Series(y),Series(theta)], axis=1)
+    df.columns = ["x", "y", "theta"]
+    return df
