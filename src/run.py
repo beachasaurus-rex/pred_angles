@@ -18,7 +18,10 @@ from math import (
     pi
 )
 from sklearn.preprocessing import RobustScaler
-from numpy import array
+from numpy import (
+    array,
+    mean
+)
 
 from data import (
     perfect_circle_data,
@@ -69,6 +72,15 @@ y_eval = array(eval_data["theta"].to_numpy()).reshape(-1,1)
 s_x_eval = Tensor(x_scale.fit_transform(x_eval))
 y_scale.fit(y_eval)
 s_y_pred = circle_net(s_x_eval)
+
+#calculate coeff of determination
+s_y = s_y_val.detach().numpy()
+s_y_mean = mean(s_y)
+ss_total = 0
+for s_y_iter in s_y:
+    ss_total += (s_y_iter - s_y_mean)**2
+r2 = 1 - (val_losses[-1]/ss_total)
+
 y_pred = y_scale.inverse_transform(s_y_pred.detach().numpy())
 
 pred_thetas_list = y_pred.flatten().tolist()
@@ -80,6 +92,8 @@ for theta in pred_thetas_list:
     pred_x.append(x)
     pred_y.append(y)
 
+fig = pyplot.subplots(nrows=3, ncols=2)
+pyplot.tight_layout()
 pyplot.subplot(3,2,1)
 pyplot.scatter(train_data["x"], train_data["y"])
 pyplot.xlabel("x train")
@@ -106,8 +120,8 @@ pyplot.xlabel("true angle")
 pyplot.ylabel("predicted angle")
 pyplot.title("true vs predicted")
 pyplot.subplot(3,2,6)
-pyplot.scatter(range(1,len(train_losses)+1), val_losses)
+pyplot.scatter(range(0,len(train_losses)), val_losses)
 pyplot.xlabel("epoch")
 pyplot.ylabel("error")
-pyplot.title("error")
+pyplot.title(f"error, where R^2 = {r2}")
 pyplot.show()
